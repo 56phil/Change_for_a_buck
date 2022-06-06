@@ -45,12 +45,13 @@ print:
 .align 8
 printUInt:
     stp     fp, lr, [sp, #-16]!     ; preserve
+    stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
     sub     sp, sp, #128            ; move stack pointer down 128 bytes, space for digit string
-    add     fp, sp, #208            ; define frame
+    add     fp, sp, #224            ; define frame
 
     mov     x25, xzr                ; use as a flag 0 == normal, otherwise right justify
     cmp     x1, #1                  ; padding requested?
@@ -103,6 +104,7 @@ printUInt_exit:
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
     ldp     x25, x26, [sp], #16     ; restore
+    ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
     ret                             ; return
 
