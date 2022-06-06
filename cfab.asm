@@ -39,8 +39,11 @@ print:
 ;; x21 work register, starts with subject for printing
 ;; x22 work register, quotient
 ;; x23 remainder
-;; x24 copy of sp
+;; x24 format indicator
 ;; x25 workarea base
+;; x26
+;; x27
+;; x28
 
 .align 8
 printUInt:
@@ -53,9 +56,11 @@ printUInt:
     sub     sp, sp, #128            ; move stack pointer down 128 bytes, space for digit string
     add     fp, sp, #224            ; define frame
 
-    mov     x25, xzr                ; use as a flag 0 == normal, otherwise right justify
-    cmp     x1, #1                  ; padding requested?
-    b.ne    normal                  ; nope, regular processing
+    mov     x24, x1                 ; keep format indicator
+    mov     x25, xzr                ; use as a flag 0 means normal, otherwise right justify
+    cmp     x24, xzr                ; padding requested?
+    b.eq    normal                  ; nope, regular processing
+    b.lt    invalid_fi              ; format indicator out of range
     add     x25, sp, #80            ; point to top of workarea
     mov     x26, #15                ; size of spaces
     mov     x22, #32                ; put a blank in lsb
@@ -67,7 +72,6 @@ normal:
     mov     x19, #10                ; x19 will contain the divisor (10) used in udiv and msub
     mov     x20, xzr                ; x20 counts the number of digits stored on stack
     mov     x21, x0                 ; move input parameter to work register
-    mov     x24, sp                 ; copy stack pointer for writing string
 
     cmp     x0, xzr                 ; if x0 is zero then the division algorith will not work
     b.eq    printUInt_Zero          ; we set the value on the stack to 0
@@ -77,7 +81,7 @@ printUInt_Count:
     udiv    x22, x21, x19           ; divide x21 by 10, x22 gets quotient
     msub    x23, x22, x19, x21      ; obtain the remainder (x23) and the Quotient (x22)
     add     w23, w23, #0x30         ; add 48 to the number, turning it into an ASCII char 0-9
-    strb    w23, [x24, x20]         ; build string on the stack one byte at a time
+    strb    w23, [sp, x20]         ; build string on the stack one byte at a time
     cmp     x22, xzr                ; done?
     b.eq    printUInt_print         ; yessir
     mov     x21, x22                ; copy the Quotient (x22) into x21 which is the new value to divide by 10
@@ -108,6 +112,10 @@ printUInt_exit:
     ldp     fp, lr, [sp], #16       ; restore
     ret                             ; return
 
+invalid_fi:
+    mov     x24, xzr                ; no padding
+    b       normal                  ; continue with no formating
+
 pad:
 ;; move ascii number to bottom half of spaces
     add     x26, x25, #15           ; last byte of spaces
@@ -124,7 +132,7 @@ pad_loop:
     b       printUInt_exit          ; get out
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
-    mov     w21, #0x030             ; move "0" to w21
+    mov     x21, #0x030             ; move "0" to w21
     add     x20, x20, #1            ; increment the digit counter/index (x20)
     strb    w21, [sp, x20]          ; push digit so that it can be printed to the screen
     b       printUInt_print
