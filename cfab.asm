@@ -1,5 +1,9 @@
 .text
 .global _main
+;;  listing the ways to make change for a buck (cfab)
+
+;;  written on/for a m1 mac
+
 .align 8
 
 
@@ -27,8 +31,8 @@ _main:
 
 
 print:
-    mov     x0, #1
-    mov     x16, 4
+    mov     x0, #1                  ; STDOUT
+    mov     x16, 4                  ; write
     svc     #0xffff
     ret
 
@@ -40,31 +44,28 @@ print:
 ;; x22 work register, quotient
 ;; x23 remainder
 ;; x24 format indicator (size of field, or zero)
-;; x25
+;; x25 size of workarea
 ;; x26 misc. index
-;; x27 size of workarea
-;; x28
 
 .align 8
 printUInt:
     stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    mov     x27, #32                ; size of workarea keep it a multiple of 16
-    sub     sp, sp, x27             ; move stack pointer down n bytes, space for digit string
-    add     fp, sp, x27             ; account for work area
+    mov     x25, #32                ; size of workarea keep it a multiple of 16
+    sub     sp, sp, x25             ; move stack pointer down n * 16 bytes, space for digit string
+    add     fp, sp, x25             ; account for work area
     add     fp, fp, #96             ; finish defining frame
 
     mov     x24, x1                 ; keep format indicator
     cmp     x24, xzr                ; padding requested?
     b.eq    normal                  ; nope, regular processing
     b.lt    invalid_fi              ; format indicator out of range
-    cmp     x24, x27                ; field fits in workarea?
+    cmp     x24, x25                ; field size fits in workarea?
     b.ge    invalid_fi              ; nope, skip padding
-    mov     x26, x27                ; index (size of workarea)
+    mov     x26, x25                ; index (size of workarea)
     mov     x22, #0x20              ; put a " " in lsb
 init_loop:                          ; fill workarea with blanks
     strb    w22, [sp, x26]          ; insert another blank
@@ -91,19 +92,18 @@ printUInt_Count:
 ;; Using the stack guarantees that the digits are printed start with the most significant digit
 printUInt_print:
     cmp     x24, xzr                ; pad?
-    b.gt    pad                     ; yep
-    add     x1, sp, #1              ; sp + string length of number
-    mov     x2, x20                 ; string length
+    b.eq    nopad                   ; nope
+    add     x1, sp, #1              ; point to output
+    mov     x2, x24                 ; size of field
     bl      reverse_field           ; undo algorithm
-    bl      print                   ; number to STDOUT
+    bl      print
 
 printUInt_exit:
-    add     sp, sp, x27             ; return string work area
+    add     sp, sp, x25             ; return string work area
     ldp     x19, x20, [sp], #16     ; restore
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
     ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
     ret                             ; return
 
@@ -111,11 +111,11 @@ invalid_fi:
     mov     x24, xzr                ; no padding
     b       normal                  ; continue with no formating
 
-pad:
-    add     x1, sp, #1              ; point to output
-    mov     x2, x24                 ; size of field
+nopad:
+    add     x1, sp, #1              ; sp + string length of number
+    mov     x2, x20                 ; string length
     bl      reverse_field           ; undo algorithm
-    bl      print
+    bl      print                   ; number to STDOUT
     b       printUInt_exit          ; get out
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
@@ -220,7 +220,6 @@ print_line:
 ;   x25     line end address
 ;   x26     field size
     stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
@@ -268,7 +267,6 @@ print_line:
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
     ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
     ret
 
@@ -281,29 +279,29 @@ reverse_field:
 ;;  x26, x25 work registers
 
     cmp     x2, #1                  ; anything to swap?
-    b.le    rev_exit                ; no, get out
+    b.le    get_out                 ; no, get out
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
-
-;;  initialize
+    add     fp, sp, #48             ; setup frame
 
     mov     x27, xzr                ; index of first byte
     sub     x28, x2, #1             ; index of last byte
 
-rev_loop:
+reverse_loop:
     ldrb    w25, [x1, x27]          ; first unswapped byte
     ldrb    w26, [x1, x28]          ; last unswapped byte
     strb    w26, [x1, x27]
     strb    w25, [x1, x28]
     add     x27, x27, #1            ; next byte
-    sub     x28, x28, #1            ; ditto
-    cmp     x28, x27                ; done?
-    b.gt    rev_loop                ; no, repeat
+    sub     x28, x28, #1            ; previous byte
+    cmp     x27, x28                ; done? is x28 <= x27
+    b.lt    reverse_loop            ; no, repeat
 
-rev_exit:
+reverse_exit:
     ldp     x25, x26, [sp], #16     ; restore
     ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
+get_out:
     ret
 
