@@ -53,8 +53,8 @@ printUInt:
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    mov     x27, #128               ; size of workarea
-    sub     sp, sp, x27             ; move stack pointer down 128 bytes, space for digit string
+    mov     x27, #32                ; size of workarea keep it a multiple of 16
+    sub     sp, sp, x27             ; move stack pointer down n bytes, space for digit string
     add     fp, sp, x27             ; account for work area
     add     fp, fp, #96             ; finish defining frame
 
@@ -68,7 +68,7 @@ printUInt:
     mov     x22, #0x20              ; put a " " in lsb
 init_loop:                          ; fill workarea with blanks
     strb    w22, [sp, x26]          ; insert another blank
-    subs    x26, x26, #1            ; move over an other byte
+    subs    x26, x26, #1            ; move over another byte
     b.gt    init_loop
 normal:
     mov     x19, #10                ; x19 will contain the divisor (10) used in udiv and msub
@@ -112,9 +112,8 @@ invalid_fi:
     b       normal                  ; continue with no formating
 
 pad:
-    mov     x1, sp                  ; add field size to stack pointer
+    add     x1, sp, #1              ; point to output
     mov     x2, x24                 ; size of field
-    ; strb     w24, [x20]             ; to force an exception
     bl      reverse_field           ; undo algorithm
     bl      print
     b       printUInt_exit          ; get out
@@ -182,7 +181,7 @@ reset_cents:
     cmp     x20, #100               ; done?
     b.le    sum                     ; nope
 
-    adr     x26, lit_pool       ; address of literals
+    adr     x26, lit_pool           ; address of literals
     mov     x1, x26                 ; for write
     mov     x2, #11                 ; of this many bytes
     bl      print
@@ -218,6 +217,8 @@ print_line:
 ;   x22     dimes
 ;   x23     nickles
 ;   x24     cents
+;   x25     line end address
+;   x26     field size
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
@@ -229,32 +230,33 @@ print_line:
     adr     x25, lit_pool
     add     x25, x25, #42           ; new line address
 
+    mov     x26, #5                 ; field size
     mov     x0, x19                 ; line number
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt
 
     mov     x0, #50
     udiv    x0, x20, x0
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of halves
 
     mov     x0, #25
     udiv    x0, x21, x0
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of quarters
 
     mov     x0, #10
     udiv    x0, x22, x0
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of dimes
 
     mov     x0, #5
     udiv    x0, x23, x0
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of nickles
 
     mov     x0, x24                 ; penny count
-    mov     x1, #6                  ; request padding
+    mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of halves
 
     mov     x1, x25                 ; new line address
