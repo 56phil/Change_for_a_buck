@@ -38,14 +38,14 @@ print:
 
 ;; Print value in x0 as an unisgned int to STDOUT
 ;; When x1 == 0 do not pad. Otherwise, right justify in a x1 byte field padded with 0x20s
-;; x19 radix/divisor
-;; x20 digit string index
-;; x21 work register, starts with subject for printing
-;; x22 work register, quotient
-;; x23 remainder
-;; x24 format indicator (size of field, or zero)
-;; x25 size of workarea
 ;; x26 misc. index
+;; x25 size of workarea
+;; x24 format indicator (size of field, or zero)
+;; x23 remainder
+;; x22 work register, quotient
+;; x21 work register, starts with subject for printing
+;; x20 digit string index
+;; x19 radix/divisor
 
 .align 8
 printUInt:
@@ -128,14 +128,14 @@ printUInt_Zero:                     ; this is the exceptional case when x21 is 0
 
 
 count_ways:
-;   x19     count
-;   x20     halves
-;   x21     quarters
-;   x22     dimes
-;   x23     nickles
-;   x24     cents
-;   x25     sum
 ;   x26     top of workarea
+;   x25     sum
+;   x24     cents
+;   x23     nickles
+;   x22     dimes
+;   x21     quarters
+;   x20     halves
+;   x19     count
 
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
@@ -152,17 +152,17 @@ count_ways:
     mov     x24, xzr                ; init cents
 
 sum:
-    mov     x25, x20                ; init sum with halves
-    add     x25, x25, x21           ; add quarters
+    add     x25, x20, x21           ; init sum with halves
     add     x25, x25, x22           ; add dimes
     add     x25, x25, x23           ; add nickles
     add     x25, x25, x24           ; add cents
     cmp     x25, #100               ; a hit?
-    b.gt    reset_cents             ; next!
+    b.gt    reset_cents             ; no, too high
     b.eq    hit                     ; bingo
     add     x24, x24, #5            ; bump cents
     cmp     x24, #100               ; there yet?
     b.le    sum                     ; nope
+
 reset_cents:
     mov     x24, xzr                ; reset cents
     add     x23, x23, #5            ; bump nickles
@@ -202,7 +202,6 @@ reset_cents:
     ret
 
 lit_pool:   .ascii  "\nThere are ways to make change for a buck.\n"
-
 .align 8
 hit:
     add     x19, x19, #1            ; bump count
@@ -211,20 +210,21 @@ hit:
 
 
 print_line:
-;   x19     count
-;   x20     halves
-;   x21     quarters
-;   x22     dimes
-;   x23     nickles
-;   x24     cents
-;   x25     line end address
 ;   x26     field size
+;   x25     line end address
+;   x24     cents
+;   x23     nickles
+;   x22     dimes
+;   x21     quarters
+;   x20     halves
+;   x19     count
+
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    add     fp, sp, #96             ; define stack frame
+    add     fp, sp, #80             ; define stack frame
 
     adr     x25, lit_pool
     add     x25, x25, #42           ; new line address
@@ -272,11 +272,12 @@ print_line:
 
 
 reverse_field:
-;;  x0 start of field   const
-;;  x1 size of field    const
 ;;  x28 index of last unswapped byte
 ;;  x27 index of next byte to swap
 ;;  x26, x25 work registers
+;; inputs
+;;  x1 size of field    const
+;;  x0 start of field   const
 
     cmp     x2, #1                  ; anything to swap?
     b.le    get_out                 ; no, get out
