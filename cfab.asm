@@ -33,16 +33,16 @@ print:
     ret
 
 ;; Print value in x0 as an unisgned int to STDOUT
-;; When x1 == 1 right justify in a 5 byte field padded with 0x20
+;; When x1 == 0 do not pad. Otherwise, right justify in a x1 byte field padded with 0x20s
 ;; x19 radix/divisor
 ;; x20 digit string index
 ;; x21 work register, starts with subject for printing
 ;; x22 work register, quotient
 ;; x23 remainder
-;; x24 format indicator
-;; x25 workarea base
-;; x26
-;; x27
+;; x24 format indicator (size of field, or zero)
+;; x25
+;; x26 misc. index
+;; x27 size of workarea
 ;; x28
 
 .align 8
@@ -53,21 +53,23 @@ printUInt:
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    sub     sp, sp, #128            ; move stack pointer down 128 bytes, space for digit string
-    add     fp, sp, #224            ; define frame
+    mov     x27, #128               ; size of workarea
+    sub     sp, sp, x27             ; move stack pointer down 128 bytes, space for digit string
+    add     fp, sp, x27             ; account for work area
+    add     fp, fp, #96             ; finish defining frame
 
     mov     x24, x1                 ; keep format indicator
-    mov     x25, xzr                ; use as a flag 0 means normal, otherwise right justify
     cmp     x24, xzr                ; padding requested?
     b.eq    normal                  ; nope, regular processing
     b.lt    invalid_fi              ; format indicator out of range
-    add     x25, sp, #80            ; point to top of workarea
-    mov     x26, #15                ; size of spaces
-    mov     x22, #32                ; put a blank in lsb
-init_loop:
-    strb    w22, [x25, x26]         ; another blank
-    subs    x26, x26, #1            ; move left a byte
-    b.ge    init_loop
+    cmp     x24, x27                ; field fits in workarea?
+    b.ge    invalid_fi              ; nope, skip padding
+    mov     x26, x27                ; index (size of workarea)
+    mov     x22, #0x20              ; put a " " in lsb
+init_loop:                          ; fill workarea with blanks
+    strb    w22, [sp, x26]          ; insert another blank
+    subs    x26, x26, #1            ; move over an other byte
+    b.gt    init_loop
 normal:
     mov     x19, #10                ; x19 will contain the divisor (10) used in udiv and msub
     mov     x20, xzr                ; x20 counts the number of digits stored on stack
@@ -77,32 +79,26 @@ normal:
     b.eq    printUInt_Zero          ; we set the value on the stack to 0
 
 printUInt_Count:
-    add     x20, x20, #1            ; increment the digit counter/index (x20)
     udiv    x22, x21, x19           ; divide x21 by 10, x22 gets quotient
     msub    x23, x22, x19, x21      ; obtain the remainder (x23) and the Quotient (x22)
     add     w23, w23, #0x30         ; add 48 to the number, turning it into an ASCII char 0-9
-    strb    w23, [sp, x20]          ; build string on the stack one byte at a time
+    add     x20, x20, #1            ; increment the digit counter/index (x20)
+    strb    w23, [sp, x20]          ; build string on the stack one digit at a time
     mov     x21, x22                ; copy the Quotient (x22) into x21 which is the new value to divide by 10
     cmp     x21, xzr                ; done?
     b.gt    printUInt_Count         ; if x21 is not yet zero than there's more digits to extract
 
 ;; Using the stack guarantees that the digits are printed start with the most significant digit
 printUInt_print:
-    cmp     x25, xzr                ; pad?
+    cmp     x24, xzr                ; pad?
     b.gt    pad                     ; yep
-    add     x20, x20, #1            ; increment the digit counter/index (x20)
-    add     x1, sp, x20             ; sp + string length
-printUInt_print_loop:
-    cmp     x20, #1                 ; done?
-    b.eq    printUInt_exit          ; all done
-    sub     x20, x20, #1            ; decrement index
-    add     x1, sp, x20             ; digit index + sp = address
-    mov     x2, #1                  ; string length
-    bl      print                   ; digit to STDOUT
-    b       printUInt_print_loop    ; once more to the breach
+    add     x1, sp, #1              ; sp + string length of number
+    mov     x2, x20                 ; string length
+    bl      reverse_field           ; undo algorithm
+    bl      print                   ; number to STDOUT
 
 printUInt_exit:
-    add     sp, sp, #128            ; return string work area
+    add     sp, sp, x27             ; return string work area
     ldp     x19, x20, [sp], #16     ; restore
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
@@ -116,25 +112,19 @@ invalid_fi:
     b       normal                  ; continue with no formating
 
 pad:
-;; move ascii number to bottom half of spaces
-    add     x26, x25, #15           ; last byte of spaces
-    sub     x26, x26, x20           ; first byte of number
-pad_loop:
-    ldrb    w21, [sp, x20]
-    strb    w21, [x26]              ; move to workarea for printing
-    add     x26, x26, #1
-    subs    x20, x20, #1            ; decrement index
-    b.gt    pad_loop                ; keep on truckn
-    add     x1, x25, #10            ; output area
-    mov     x2, #5                  ; string size
+    mov     x1, sp                  ; add field size to stack pointer
+    mov     x2, x24                 ; size of field
+    ; strb     w24, [x20]             ; to force an exception
+    bl      reverse_field           ; undo algorithm
     bl      print
     b       printUInt_exit          ; get out
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
-    mov     x21, #0x030             ; move "0" to w21
+    mov     x21, #0x30              ; move "0" to w21
     add     x20, x20, #1            ; increment the digit counter/index (x20)
     strb    w21, [sp, x20]          ; push digit so that it can be printed to the screen
     b       printUInt_print
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -240,31 +230,31 @@ print_line:
     add     x25, x25, #42           ; new line address
 
     mov     x0, x19                 ; line number
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt
 
     mov     x0, #50
     udiv    x0, x20, x0
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt               ; print number of halves
 
     mov     x0, #25
     udiv    x0, x21, x0
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt               ; print number of quarters
 
     mov     x0, #10
     udiv    x0, x22, x0
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt               ; print number of dimes
 
     mov     x0, #5
     udiv    x0, x23, x0
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt               ; print number of nickles
 
     mov     x0, x24                 ; penny count
-    mov     x1, #1                  ; request padding
+    mov     x1, #6                  ; request padding
     bl      printUInt               ; print number of halves
 
     mov     x1, x25                 ; new line address
@@ -279,3 +269,39 @@ print_line:
     ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
     ret
+
+
+reverse_field:
+;;  x0 start of field   const
+;;  x1 size of field    const
+;;  x28 index of last unswapped byte
+;;  x27 index of next byte to swap
+;;  x26, x25 work registers
+
+    cmp     x2, #1                  ; anything to swap?
+    b.le    rev_exit                ; no, get out
+    stp     fp, lr, [sp, #-16]!     ; preserve
+    stp     x27, x28, [sp, #-16]!   ; preserve
+    stp     x25, x26, [sp, #-16]!   ; preserve
+
+;;  initialize
+
+    mov     x27, xzr                ; index of first byte
+    sub     x28, x2, #1             ; index of last byte
+
+rev_loop:
+    ldrb    w25, [x1, x27]          ; first unswapped byte
+    ldrb    w26, [x1, x28]          ; last unswapped byte
+    strb    w26, [x1, x27]
+    strb    w25, [x1, x28]
+    add     x27, x27, #1            ; next byte
+    sub     x28, x28, #1            ; ditto
+    cmp     x28, x27                ; done?
+    b.gt    rev_loop                ; no, repeat
+
+rev_exit:
+    ldp     x25, x26, [sp], #16     ; restore
+    ldp     x27, x28, [sp], #16     ; restore
+    ldp     fp, lr, [sp], #16       ; restore
+    ret
+
