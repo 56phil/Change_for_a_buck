@@ -81,11 +81,10 @@ printUInt_Count:
     udiv    x22, x21, x19           ; divide x21 by 10, x22 gets quotient
     msub    x23, x22, x19, x21      ; obtain the remainder (x23) and the Quotient (x22)
     add     w23, w23, #0x30         ; add 48 to the number, turning it into an ASCII char 0-9
-    strb    w23, [sp, x20]         ; build string on the stack one byte at a time
-    cmp     x22, xzr                ; done?
-    b.eq    printUInt_print         ; yessir
+    strb    w23, [sp, x20]          ; build string on the stack one byte at a time
     mov     x21, x22                ; copy the Quotient (x22) into x21 which is the new value to divide by 10
-    b       printUInt_Count         ; if x21 is not yet zero than there's more digits to extract
+    cmp     x21, xzr                ; done?
+    b.gt    printUInt_Count         ; if x21 is not yet zero than there's more digits to extract
 
 ;; Using the stack guarantees that the digits are printed start with the most significant digit
 printUInt_print:
