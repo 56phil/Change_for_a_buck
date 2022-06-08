@@ -2,7 +2,7 @@
 .global _main
 ;;  listing the ways to make change for a buck (cfab)
 
-;;  written on/for a m1 mac
+;;  written on a m1 mac for Apple Silicon processors
 
 .align 8
 
@@ -36,18 +36,21 @@ print:
     svc     #0xffff
     ret
 
-;; Print value in x0 as an unisgned int to STDOUT
-;; When x1 == 0 do not pad. Otherwise, right justify in a x1 byte field padded with 0x20s
-;; x26 misc. index
-;; x25 size of workarea
-;; x24 format indicator (size of field, or zero)
-;; x23 remainder
-;; x22 work register, quotient
-;; x21 work register, starts with subject for printing
-;; x20 digit string index
-;; x19 radix/divisor
+;;  Print value in x0 as an unisgned int to STDOUT
+;;  When x1 == 0 do not pad. Otherwise, right justify in a x1 byte field padded with spaces
+;;  x26 misc. index
+;;  x25 size of workarea
+;;  x24 format indicator (size of field, or zero)
+;;  x23 remainder
+;;  x22 work register, quotient
+;;  x21 work register, starts with subject for printing
+;;  x20 digit string index
+;;  x19 radix/divisor
+;;
+;;  inputs
+;;      x0 number to be printed
+;;      x1 format indicator
 
-.align 8
 printUInt:
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
@@ -74,10 +77,10 @@ init_loop:                          ; fill workarea with blanks
 normal:
     mov     x19, #10                ; x19 will contain the divisor (10) used in udiv and msub
     mov     x20, xzr                ; x20 counts the number of digits stored on stack
-    mov     x21, x0                 ; move input parameter to work register
 
     cmp     x0, xzr                 ; if x0 is zero then the division algorith will not work
     b.eq    printUInt_Zero          ; we set the value on the stack to 0
+    mov     x21, x0                 ; move input parameter to work register
 
 printUInt_Count:
     udiv    x22, x21, x19           ; divide x21 by 10, x22 gets quotient
@@ -108,7 +111,7 @@ printUInt_exit:
     ret                             ; return
 
 invalid_fi:
-    mov     x24, xzr                ; no padding
+    mov     x24, x25                ; max padding
     b       normal                  ; continue with no formating
 
 nopad:
@@ -120,7 +123,7 @@ nopad:
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
     mov     x21, #0x30              ; move "0" to w21
-    add     x20, x20, #1            ; increment the digit counter/index (x20)
+    mov     x20, #1                 ; just one digit
     strb    w21, [sp, x20]          ; push digit so that it can be printed to the screen
     b       printUInt_print
 
@@ -226,10 +229,9 @@ print_line:
     stp     x19, x20, [sp, #-16]!   ; preserve
     add     fp, sp, #80             ; define stack frame
 
-    adr     x25, lit_pool
-    add     x25, x25, #42           ; new line address
-
+    adr     x25, lit_pool           ; first byte is \n
     mov     x26, #5                 ; field size
+
     mov     x0, x19                 ; line number
     mov     x1, x26                 ; request padding
     bl      printUInt
