@@ -68,7 +68,7 @@ printUInt:
     b.lt    invalid_fi              ; format indicator out of range
     cmp     x24, x25                ; field size fits in workarea?
     b.gt    invalid_fi              ; nope, max padding
-max_pad:
+clr_wrk:
     mov     x26, x25                ; index (size of workarea)
     mov     x22, #0x20              ; put a " " in lsb
 init_loop:                          ; fill workarea with blanks
@@ -114,7 +114,7 @@ printUInt_exit:
 
 invalid_fi:
     mov     x24, x25                ; max padding
-    b       max_pad                 ; continue with no formating
+    b       clr_wrk                 ; continue
 
 nopad:
     mov     x2, x20                 ; string length
