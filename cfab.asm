@@ -60,14 +60,15 @@ printUInt:
     mov     x25, #32                ; size of workarea keep it a multiple of 16
     sub     sp, sp, x25             ; move stack pointer down n * 16 bytes, space for digit string
     add     fp, sp, x25             ; account for work area
-    add     fp, fp, #96             ; finish defining frame
-
+    add     fp, fp, #80             ; finish defining frame
+;
     mov     x24, x1                 ; keep format indicator
     cmp     x24, xzr                ; padding requested?
     b.eq    normal                  ; nope, regular processing
     b.lt    invalid_fi              ; format indicator out of range
     cmp     x24, x25                ; field size fits in workarea?
-    b.ge    invalid_fi              ; nope, skip padding
+    b.gt    invalid_fi              ; nope, max padding
+max_pad:
     mov     x26, x25                ; index (size of workarea)
     mov     x22, #0x20              ; put a " " in lsb
 init_loop:                          ; fill workarea with blanks
@@ -98,6 +99,7 @@ printUInt_print:
     b.eq    nopad                   ; nope
     add     x1, sp, #1              ; point to output
     mov     x2, x24                 ; size of field
+reverse_and_print:
     bl      reverse_field           ; undo algorithm
     bl      print
 
@@ -112,21 +114,18 @@ printUInt_exit:
 
 invalid_fi:
     mov     x24, x25                ; max padding
-    b       normal                  ; continue with no formating
+    b       max_pad                 ; continue with no formating
 
 nopad:
     add     x1, sp, #1              ; sp + string length of number
     mov     x2, x20                 ; string length
-    bl      reverse_field           ; undo algorithm
-    bl      print                   ; number to STDOUT
-    b       printUInt_exit          ; get out
+    b       reverse_and_print
 
 printUInt_Zero:                     ; this is the exceptional case when x21 is 0 then we need to push this ourselves to the stack
     mov     x21, #0x30              ; move "0" to w21
     mov     x20, #1                 ; just one digit
     strb    w21, [sp, x20]          ; push digit so that it can be printed to the screen
     b       printUInt_print
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
@@ -230,7 +229,7 @@ print_line:
     add     fp, sp, #80             ; define stack frame
 
     adr     x25, lit_pool           ; first byte is \n
-    mov     x26, #5                 ; field size
+    mov     x26, #6                 ; field size
 
     mov     x0, x19                 ; line number
     mov     x1, x26                 ; request padding
@@ -305,6 +304,7 @@ reverse_exit:
     ldp     x25, x26, [sp], #16     ; restore
     ldp     x27, x28, [sp], #16     ; restore
     ldp     fp, lr, [sp], #16       ; restore
+
 get_out:
     ret
 
