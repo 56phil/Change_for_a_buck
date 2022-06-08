@@ -97,9 +97,9 @@ printUInt_Count:
 printUInt_print:
     cmp     x24, xzr                ; pad?
     b.eq    nopad                   ; nope
-    add     x1, sp, #1              ; point to output
     mov     x2, x24                 ; size of field
 reverse_and_print:
+    add     x1, sp, #1              ; point to output
     bl      reverse_field           ; undo algorithm
     bl      print
 
@@ -117,7 +117,6 @@ invalid_fi:
     b       max_pad                 ; continue with no formating
 
 nopad:
-    add     x1, sp, #1              ; sp + string length of number
     mov     x2, x20                 ; string length
     b       reverse_and_print
 
