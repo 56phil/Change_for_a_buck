@@ -163,10 +163,7 @@ print_line:
     mov     x0, x24                 ; penny count
     mov     x1, x26                 ; request padding
     bl      printUInt               ; print number of halves
-
-    mov     x1, x25                 ; new line address
-    mov     x2, #1
-    bl      print
+    bl      EOL                     ; end of line
 
  print_line_ret:
     ldp     x19, x20, [sp], #16     ; restore
