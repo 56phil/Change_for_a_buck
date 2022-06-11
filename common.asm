@@ -1,5 +1,28 @@
 .text
 .align 8
+;_main:
+    stp     fp, lr, [sp, #-16]!     ; preserve
+    stp     x27, x28, [sp, #-16]!   ; preserve
+    stp     x25, x26, [sp, #-16]!   ; preserve
+    stp     x23, x24, [sp, #-16]!   ; preserve
+    stp     x21, x22, [sp, #-16]!   ; preserve
+    stp     x19, x20, [sp, #-16]!   ; preserve
+    mov     x28, #64                ; size of workarea keep it a multiple of 16
+    sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for ASCII string
+    add     fp, sp, x28             ; account for work area size
+    add     fp, fp, #64             ; finish setting up frame pointer by adding size of save area
+ 
+ ;exit_program:
+    add     fp, fp, x28             ; return workarea to stack frame
+    ldp     x19, x20, [sp], #16     ; restore
+    ldp     x21, x22, [sp], #16     ; restore
+    ldp     x23, x24, [sp], #16     ; restore
+    ldp     x25, x26, [sp], #16     ; restore
+    ldp     x27, x28, [sp], #16     ; restore
+    ldp     fp, lr, [sp], #16       ; restore
+    mov     x0, xzr                 ; return code
+    mov     x16, #1                 ; return control to supervisor
+    svc     0xffff
 
 atouint:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -56,7 +79,7 @@ acc_exit:
     mov     x0, x26                 ; time to convert & print
     mov     x1, xzr                 ; no padding
     bl      printUInt               ; to STDOUT
-    bl      EOL
+    bl      EOL                     ; must be called (at least on a Mac) to terminate a line
 
 atouint_exit:
     add     sp, sp, x28             ; return string work area
