@@ -7,8 +7,9 @@
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    mov     x28, \was               ; workarea size - keep it a multiple of 16
-    sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for ASCII string
+    mov     x28, \was               ; workarea - number of 16 byte segments
+    lsl     x28, x28, #4            ; segment count * 16
+    sub     sp, sp, x28             ; move stack pointer down n * 16 to make workarea
     add     fp, sp, x28             ; account for work area size
     add     fp, fp, #96             ; finish setting up frame pointer by adding size of save area
 .endm
@@ -38,7 +39,7 @@
 .endm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
- 
+
 atouint:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  converts an ASCII string to an unsigned int
@@ -108,7 +109,7 @@ EOL:                                ; end of line routine
 ;;    x28 workarea size located at bottom of stack frame
 ;;    x27 unused
 
-    m_init 16
+    m_init 1
 
     mov     x1, #0xa                ; new line char
     strb    w1, [sp, #1]            ; first byte of output gets it
@@ -137,7 +138,7 @@ printUInt:
 ;;      x0 number to be printed
 ;;      x1 format indicator
 ;
-    m_init 32
+    m_init 2
 
     mov     x24, x1                 ; keep format indicator
     cmp     x24, xzr                ; padding requested?
