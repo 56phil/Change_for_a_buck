@@ -42,7 +42,7 @@ count_ways:
     mov     x24, xzr                ; init cents
 
 sum:
-    add     x25, x20, x21           ; init sum with halves
+    add     x25, x20, x21           ; init sum with halves & quarters
     add     x25, x25, x22           ; add dimes
     add     x25, x25, x23           ; add nickles
     add     x25, x25, x24           ; add cents
