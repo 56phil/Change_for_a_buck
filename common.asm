@@ -1,19 +1,20 @@
 .text
 .align 8
-;_main:
+.macro m_init was
     stp     fp, lr, [sp, #-16]!     ; preserve
     stp     x27, x28, [sp, #-16]!   ; preserve
     stp     x25, x26, [sp, #-16]!   ; preserve
     stp     x23, x24, [sp, #-16]!   ; preserve
     stp     x21, x22, [sp, #-16]!   ; preserve
     stp     x19, x20, [sp, #-16]!   ; preserve
-    mov     x28, #64                ; size of workarea keep it a multiple of 16
+    mov     x28, \was               ; workarea size - keep it a multiple of 16
     sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for ASCII string
     add     fp, sp, x28             ; account for work area size
-    add     fp, fp, #64             ; finish setting up frame pointer by adding size of save area
+    add     fp, fp, #96             ; finish setting up frame pointer by adding size of save area
+.endm
  
- ;exit_program:
-    add     fp, fp, x28             ; return workarea to stack frame
+ .macro m_exit_pgm
+    add     sp, sp, x28             ; return workarea to stack frame
     ldp     x19, x20, [sp], #16     ; restore
     ldp     x21, x22, [sp], #16     ; restore
     ldp     x23, x24, [sp], #16     ; restore
@@ -23,7 +24,21 @@
     mov     x0, xzr                 ; return code
     mov     x16, #1                 ; return control to supervisor
     svc     0xffff
+.endm
 
+.macro m_ret
+    add     sp, sp, x28             ; return workarea to stack frame
+    ldp     x19, x20, [sp], #16     ; restore
+    ldp     x21, x22, [sp], #16     ; restore
+    ldp     x23, x24, [sp], #16     ; restore
+    ldp     x25, x26, [sp], #16     ; restore
+    ldp     x27, x28, [sp], #16     ; restore
+    ldp     fp, lr, [sp], #16       ; restore
+    ret
+.endm
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ 
 atouint:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;  converts an ASCII string to an unsigned int
@@ -36,14 +51,7 @@ atouint:
 ;;    x24 current factor
 ;;    x23 unused
 
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    mov     x28, #64                ; size of workarea keep it a multiple of 16
-    sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for ASCII string
-    add     fp, sp, x28             ; account for work area size
-    add     fp, fp, #64             ; finish setting up frame pointer by adding size of save area
+    m_init 64
 
     sub     x27, x28, #8            ; initialize index
     mov     x23, xzr                ; to clear work area
@@ -82,12 +90,7 @@ acc_exit:
     bl      EOL                     ; must be called (at least on a Mac) to terminate a line
 
 atouint_exit:
-    add     sp, sp, x28             ; return string work area
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    ret                             ; return
+    m_ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -105,12 +108,7 @@ EOL:                                ; end of line routine
 ;;    x28 workarea size located at bottom of stack frame
 ;;    x27 unused
 
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    mov     x28, #16                ; size of workarea keep it a multiple of 16
-    sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for ASCII string
-    add     fp, sp, x28             ; account for work area size
-    add     fp, fp, #32             ; finish setting up frame pointer
+    m_init 16
 
     mov     x1, #0xa                ; new line char
     strb    w1, [sp, #1]            ; first byte of output gets it
@@ -118,10 +116,7 @@ EOL:                                ; end of line routine
     mov     x2, #1                  ; print just the new line
     bl      print
 
-    add     sp, sp, x28             ; return work area
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    ret                             ; return
+    m_ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -129,6 +124,7 @@ printUInt:
 ;;  Print value in x0 as an unisgned int to STDOUT
 ;;  When x1 == 0 do not pad. Otherwise, right justify in a x1 byte field padded with spaces
 ;;  x28 size of workarea
+;;  x27 unused
 ;;  x26 misc. index
 ;;  x24 format indicator (size of field, or zero)
 ;;  x23 remainder
@@ -141,16 +137,7 @@ printUInt:
 ;;      x0 number to be printed
 ;;      x1 format indicator
 ;
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    stp     x21, x22, [sp, #-16]!   ; preserve
-    stp     x19, x20, [sp, #-16]!   ; preserve
-    mov     x28, #32                ; size of workarea keep it a multiple of 16
-    sub     sp, sp, x28             ; move stack pointer down n * 16 bytes, space for digit string
-    add     fp, sp, x28             ; account for work area
-    add     fp, fp, #96             ; finish defining frame
+    m_init 32
 
     mov     x24, x1                 ; keep format indicator
     cmp     x24, xzr                ; padding requested?
@@ -193,14 +180,7 @@ reverse_and_print:
     bl      print
 
 printUInt_exit:
-    add     sp, sp, x28             ; return string work area
-    ldp     x19, x20, [sp], #16     ; restore
-    ldp     x21, x22, [sp], #16     ; restore
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    ret                             ; return
+    m_ret
 
 invalid_fi:
     mov     x24, x28                ; max padding

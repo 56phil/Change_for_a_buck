@@ -4,35 +4,25 @@
 
 ;;  written on a m1 mac for Apple Silicon processors
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+.include "common.asm"
 .align 8
 
 _main:
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    stp     x21, x22, [sp, #-16]!   ; preserve
-    stp     x19, x20, [sp, #-16]!   ; preserve
-    add     fp, sp, #96             ; update stack frame pointer
+    m_init 0
 
     bl      count_ways              ; get 'er done
 
- exit_cfab:
-    ldp     x19, x20, [sp], #16     ; restore
-    ldp     x21, x22, [sp], #16     ; restore
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    mov     x0, xzr                 ; return code
-    mov     x16, #1                 ; return control to supervisor
-    svc     0xffff
+    m_exit_pgm
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 count_ways:
 ;; a for loop for each coin
 ;;
+;;   x28     size of workarea
+;;   x27     unused
 ;;   x26     top of literal pool
 ;;   x25     sum
 ;;   x24     cents
@@ -42,12 +32,7 @@ count_ways:
 ;;   x20     halves
 ;;   x19     count
 
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    stp     x21, x22, [sp, #-16]!   ; preserve
-    stp     x19, x20, [sp, #-16]!   ; preserve
-    add     fp, sp, #80             ; update stack frame pointer
+    m_init 0
 
     mov     x19, xzr                ; init count
     mov     x20, xzr                ; init halves
@@ -99,12 +84,7 @@ reset_cents:
     mov     x2, #35                 ; string size
     bl      print
 
-    ldp     x19, x20, [sp], #16     ; restore
-    ldp     x21, x22, [sp], #16     ; restore
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    ret
+    m_ret
 
 hit:
     add     x19, x19, #1            ; bump count
@@ -117,8 +97,10 @@ lit_pool:   .ascii  "\nThere are ways to make change for a buck.\n"
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 print_line:
+;   x28     workarea size
+;   x27     unused
 ;   x26     field size
-;   x25     line end address
+;   x25     lit_pool address
 ;   x24     cents
 ;   x23     nickles
 ;   x22     dimes
@@ -126,12 +108,7 @@ print_line:
 ;   x20     halves
 ;   x19     count
 
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    stp     x23, x24, [sp, #-16]!   ; preserve
-    stp     x21, x22, [sp, #-16]!   ; preserve
-    stp     x19, x20, [sp, #-16]!   ; preserve
-    add     fp, sp, #80             ; define stack frame
+    m_init 0
 
     adr     x25, lit_pool           ; first byte is \n
     mov     x26, #6                 ; field size
@@ -166,16 +143,7 @@ print_line:
     bl      EOL                     ; end of line
 
  print_line_ret:
-    ldp     x19, x20, [sp], #16     ; restore
-    ldp     x21, x22, [sp], #16     ; restore
-    ldp     x23, x24, [sp], #16     ; restore
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-    ret
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-.include "common.asm"
+    m_ret
 
 ;;EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEOF
 
