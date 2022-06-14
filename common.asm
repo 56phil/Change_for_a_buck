@@ -215,6 +215,7 @@ readSTDIN:
 
 reverse_field:
 ;;  swaps bytes so that "54321" becomes "12345"
+;;  x28 reserved for workarea size
 ;;  x24 index of last unswapped byte
 ;;  x27 index of next byte to swap
 ;;  x26, x25 work registers
@@ -240,4 +241,3 @@ reverse_loop:
     m_ret
 
 ;;EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEOF
-
