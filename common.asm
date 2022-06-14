@@ -215,40 +215,29 @@ readSTDIN:
 
 reverse_field:
 ;;  swaps bytes so that "54321" becomes "12345"
-;;  x28 index of last unswapped byte
+;;  x24 index of last unswapped byte
 ;;  x27 index of next byte to swap
 ;;  x26, x25 work registers
 ;; inputs
 ;;  x2 size of field    const
 ;;  x1 start of field   const
 
-    cmp     x2, #1                  ; anything to swap?
-    b.le    get_out                 ; no, get out
-    stp     fp, lr, [sp, #-16]!     ; preserve
-    stp     x27, x28, [sp, #-16]!   ; preserve
-    stp     x25, x26, [sp, #-16]!   ; preserve
-    add     fp, sp, #48             ; setup frame
+    m_init 0
 
     mov     x27, xzr                ; index of first byte
-    sub     x28, x2, #1             ; index of last byte
+    sub     x24, x2, #1             ; index of last byte
 
 reverse_loop:
     ldrb    w25, [x1, x27]          ; first unswapped byte
-    ldrb    w26, [x1, x28]          ; last unswapped byte
+    ldrb    w26, [x1, x24]          ; last unswapped byte
     strb    w26, [x1, x27]
-    strb    w25, [x1, x28]
+    strb    w25, [x1, x24]
     add     x27, x27, #1            ; next byte
-    sub     x28, x28, #1            ; previous byte
-    cmp     x27, x28                ; done? is x28 <= x27
+    sub     x24, x24, #1            ; previous byte
+    cmp     x27, x24                ; done? is x28 <= x27
     b.lt    reverse_loop            ; no, repeat
 
-reverse_exit:
-    ldp     x25, x26, [sp], #16     ; restore
-    ldp     x27, x28, [sp], #16     ; restore
-    ldp     fp, lr, [sp], #16       ; restore
-
-get_out:
-    ret
+    m_ret
 
 ;;EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEOF
 
